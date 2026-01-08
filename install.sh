@@ -3,7 +3,7 @@ set -e
 
 echo "======================================="
 echo " ZiVPN UDP Server + Dashboard Installer "
-echo " Fully Automatic (No Manual Input)     "
+echo " Fully Automatic (Auth.Config FIXED)   "
 echo "======================================="
 
 # -------------------------------
@@ -27,7 +27,7 @@ apt install -y \
 
 # -------------------------------
 # STEP 3: INSTALL ZIVPN UDP SERVER
-# AUTO-ENTER FOR PASSWORD PROMPT
+# AUTO ENTER FOR PASSWORD PROMPT
 # -------------------------------
 echo "[3/6] Installing ZiVPN UDP server..."
 
@@ -38,7 +38,7 @@ chmod +x zi.sh
 
 echo "Auto-confirming ZiVPN password prompt (default: zi)..."
 
-# Auto press ENTER
+# auto press ENTER
 printf "\n" | ./zi.sh
 
 # -------------------------------
@@ -80,11 +80,14 @@ def save_db(data):
 def sync():
     passwords = [p for p, _ in load_db()]
     tmp = "/tmp/zivpn.json"
+
+    # ✅ CORRECT KEY: auth.config
     subprocess.run(
-        ["jq", f'.password={json.dumps(passwords)}', CONFIG],
+        ["jq", f'.auth.config={json.dumps(passwords)}', CONFIG],
         stdout=open(tmp, "w"),
         check=True
     )
+
     os.replace(tmp, CONFIG)
     subprocess.run(["systemctl", "restart", "zivpn"])
 
@@ -159,6 +162,6 @@ echo "[5/6] Setting up auto-clean cron..."
 echo "======================================="
 echo " INSTALLATION COMPLETED SUCCESSFULLY "
 echo "======================================="
-echo "Command to open dashboard:  zivpn"
-echo "Default UDP password: zi"
+echo "Dashboard command : zivpn"
+echo "ZiVPN auth source : auth.config (FIXED)"
 echo "======================================="
