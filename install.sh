@@ -3,90 +3,75 @@ set -e
 
 echo "======================================="
 echo " ZiVPN UDP Server + Dashboard Installer "
-echo " Stable • Crash-proof • Zi Locked     "
+echo " Format-Preserved • zi Locked         "
 echo "======================================="
 
 # -------------------------------
 # STEP 1: SYSTEM UPDATE
 # -------------------------------
-echo "[1/6] Updating system..."
 apt update -y && apt upgrade -y
 
 # -------------------------------
-# STEP 2: DEPENDENCIES (DEBIAN SAFE)
+# STEP 2: DEPENDENCIES
 # -------------------------------
-echo "[2/6] Installing dependencies..."
-apt install -y \
-  curl \
-  wget \
-  python3 \
-  python3-pip \
-  python3-rich \
-  jq \
-  cron
+apt install -y curl wget python3 python3-rich jq cron
 
 # -------------------------------
-# STEP 3: INSTALL ZIVPN UDP SERVER
-# AUTO ENTER FOR PASSWORD PROMPT
+# STEP 3: INSTALL ZIVPN
 # -------------------------------
-echo "[3/6] Installing ZiVPN UDP server..."
-
 cd /root || exit 1
-
 wget -O zi.sh https://raw.githubusercontent.com/zahidbd2/udp-zivpn/main/zi.sh
 chmod +x zi.sh
-
-echo "Auto-confirming ZiVPN password prompt (default: zi)..."
 printf "\n" | ./zi.sh
 
 # -------------------------------
 # STEP 4: INSTALL DASHBOARD
 # -------------------------------
-echo "[4/6] Installing ZiVPN dashboard..."
+TMP="/tmp/zivpn_dashboard.tmp"
 
-TMP_DASH="/tmp/zivpn_dashboard.tmp"
-
-cat << 'EOF' > "$TMP_DASH"
+cat << 'EOF' > "$TMP"
 #!/usr/bin/env python3
-import json, time, os, subprocess
+import time, os, re, subprocess
 from rich.console import Console
 from rich.table import Table
 
 CONFIG = "/etc/zivpn/config.json"
 DB = "/etc/zivpn/pass.db"
-PERMANENT = "zi"   # 🔒 NEVER REMOVED
+PERMANENT = "zi"
 
 console = Console()
 os.makedirs("/etc/zivpn", exist_ok=True)
 open(DB, "a").close()
 
-def load_db():
+def load_passwords():
     now = int(time.time())
-    data = []
+    out = []
     with open(DB) as f:
         for line in f:
             if "|" in line:
                 p, e = line.strip().split("|")
-                if int(e) > now and p != PERMANENT:
-                    data.append((p, int(e)))
-    return data
+                if int(e) > now:
+                    out.append(p)
+    return out
 
-def save_db(data):
-    with open(DB, "w") as f:
-        for p, e in data:
-            f.write(f"{p}|{e}\n")
+def write_config(passwords):
+    # zi always first, unique, preserved
+    final = [PERMANENT] + [p for p in passwords if p != PERMANENT]
+    array = "[" + ",".join(f"\"{p}\"" for p in final) + "]"
 
-def sync():
-    passwords = [PERMANENT] + [p for p, _ in load_db()]
+    with open(CONFIG) as f:
+        text = f.read()
 
-    # 🔐 ZiVPN REQUIRES COMPACT ONE-LINE JSON
-    tmp = "/tmp/zivpn.json"
-    subprocess.run(
-        ["jq", "-c", f'.auth.config={json.dumps(passwords)}', CONFIG],
-        stdout=open(tmp, "w"),
-        check=True
+    new_text = re.sub(
+        r'"config"\s*:\s*\[[^\]]*\]',
+        f'"config": {array}',
+        text,
+        flags=re.S
     )
-    os.replace(tmp, CONFIG)
+
+    with open(CONFIG, "w") as f:
+        f.write(new_text)
+
     subprocess.run(["systemctl", "restart", "zivpn"])
 
 while True:
@@ -98,76 +83,66 @@ while True:
     console.print("5) Restart ZiVPN")
     console.print("0) Exit")
 
-    choice = input("Select: ").strip()
+    c = input("Select: ").strip()
 
-    if choice == "1":
+    if c == "1":
         p = input("Password: ").strip()
-        if p == PERMANENT:
-            console.print("[red]'zi' is permanent and already active[/red]")
+        if not p or p == PERMANENT:
+            console.print("[red]Invalid password[/red]")
             continue
         d = int(input("Valid days: "))
         exp = int(time.time()) + d * 86400
-        data = load_db()
-        data.append((p, exp))
-        save_db(data)
-        sync()
+        with open(DB, "a") as f:
+            f.write(f"{p}|{exp}\n")
+        write_config(load_passwords())
         console.print("[green]Password added[/green]")
 
-    elif choice == "2":
-        data = load_db()
-        for i, (p, e) in enumerate(data, 1):
-            print(f"{i}) {p} expires {time.strftime('%Y-%m-%d', time.localtime(e))}")
-        if not data:
+    elif c == "2":
+        pw = load_passwords()
+        if not pw:
             console.print("[yellow]No removable passwords[/yellow]")
             continue
+        for i, p in enumerate(pw, 1):
+            print(f"{i}) {p}")
         n = int(input("Delete number: "))
-        if 1 <= n <= len(data):
-            data.pop(n - 1)
-            save_db(data)
-            sync()
-            console.print("[red]Password deleted[/red]")
+        pw.pop(n - 1)
+        with open(DB, "w") as f:
+            for p in pw:
+                f.write(f"{p}|9999999999\n")
+        write_config(pw)
+        console.print("[red]Password deleted[/red]")
 
-    elif choice == "3":
+    elif c == "3":
         table = Table(title="Active Passwords")
-        table.add_column("No")
         table.add_column("Password")
-        table.add_column("Expires")
-        table.add_row("-", PERMANENT, "Never")
-        for i, (p, e) in enumerate(load_db(), 1):
-            table.add_row(str(i), p, time.strftime("%Y-%m-%d", time.localtime(e)))
+        table.add_row(PERMANENT)
+        for p in load_passwords():
+            table.add_row(p)
         console.print(table)
 
-    elif choice == "4":
-        save_db(load_db())
-        sync()
-        console.print("[yellow]Expired passwords cleaned[/yellow]")
+    elif c == "4":
+        write_config(load_passwords())
+        console.print("[yellow]Expired cleaned[/yellow]")
 
-    elif choice == "5":
+    elif c == "5":
         subprocess.run(["systemctl", "restart", "zivpn"])
-        console.print("[cyan]ZiVPN restarted[/cyan]")
 
-    elif choice == "0":
+    elif c == "0":
         break
 EOF
 
-chmod +x "$TMP_DASH"
-mv "$TMP_DASH" /usr/local/bin/zivpn
+chmod +x "$TMP"
+mv "$TMP" /usr/local/bin/zivpn
 
 # -------------------------------
-# STEP 5: AUTO CLEAN CRON
+# STEP 5: CRON
 # -------------------------------
-echo "[5/6] Setting up auto-clean cron..."
-
 (crontab -l 2>/dev/null; \
  echo "*/5 * * * * /usr/bin/python3 /usr/local/bin/zivpn <<< 4 >/dev/null 2>&1") | crontab -
 
-# -------------------------------
-# DONE
-# -------------------------------
 echo "======================================="
 echo " INSTALLATION COMPLETED SUCCESSFULLY "
 echo "======================================="
 echo "Dashboard command : zivpn"
-echo "Permanent password: zi (never removed)"
-echo "Config format     : auth.config (one-line)"
+echo "Permanent password: zi"
 echo "======================================="
