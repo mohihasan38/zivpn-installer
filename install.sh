@@ -143,6 +143,6 @@ mv "$TMP" /usr/local/bin/zivpn
 echo "======================================="
 echo " INSTALLATION COMPLETED SUCCESSFULLY "
 echo "======================================="
-echo "Dashboard command : zivpn"
-echo "Permanent password: zi"
+echo "Dashboard command : zi"
+echo "Permanent password to use: zi"
 echo "======================================="
