@@ -1,10 +1,35 @@
 #!/bin/bash
 set -e
 
-echo "======================================="
+# -------------------------------
+# TYPING EFFECT FUNCTION (3 sec)
+# -------------------------------
+type_text() {
+  text="$1"
+  delay=0.04
+  for ((i=0; i<${#text}; i++)); do
+    printf "%s" "${text:$i:1}"
+    sleep $delay
+  done
+  echo
+}
+
+clear
+echo -e "\n"
+type_text "███████╗ ██╗██╗   ██╗██████╗ ███╗   ██╗"
+type_text "╚══███╔╝ ██║██║   ██║██╔══██╗████╗  ██║"
+type_text "  ███╔╝  ██║██║   ██║██████╔╝██╔██╗ ██║"
+type_text " ███╔╝   ██║██║   ██║██╔═══╝ ██║╚██╗██║"
+type_text "███████╗ ██║╚██████╔╝██║     ██║ ╚████║"
+type_text "╚══════╝ ╚═╝ ╚═════╝ ╚═╝     ╚═╝  ╚═══╝"
+echo
+type_text "Welcome To ZIVPN Private Server"
+type_text "Script From TeamSupreme"
+sleep 1
+
+echo -e "\n======================================="
 echo " ZiVPN UDP Server + Dashboard Installer "
-echo " Format-Preserved • zi Locked         "
-echo "======================================="
+echo "=======================================\n"
 
 # -------------------------------
 # STEP 1: SYSTEM UPDATE
@@ -28,15 +53,15 @@ printf "\n" | ./zi.sh
 # STEP 4: INSTALL DASHBOARD
 # -------------------------------
 TMP="/tmp/zivpn_dashboard.tmp"
-
 cat << 'EOF' > "$TMP"
 #!/usr/bin/env python3
+
 import time, os, re, subprocess
 from rich.console import Console
 from rich.table import Table
 
 CONFIG = "/etc/zivpn/config.json"
-DB = "/etc/zivpn/pass.db"
+DB     = "/etc/zivpn/pass.db"
 PERMANENT = "zi"
 
 console = Console()
@@ -55,20 +80,17 @@ def load_passwords():
     return out
 
 def write_config(passwords):
-    # zi always first, unique, preserved
     final = [PERMANENT] + [p for p in passwords if p != PERMANENT]
     array = "[" + ",".join(f"\"{p}\"" for p in final) + "]"
 
     with open(CONFIG) as f:
         text = f.read()
-
     new_text = re.sub(
         r'"config"\s*:\s*\[[^\]]*\]',
         f'"config": {array}',
         text,
         flags=re.S
     )
-
     with open(CONFIG, "w") as f:
         f.write(new_text)
 
@@ -140,9 +162,16 @@ mv "$TMP" /usr/local/bin/zivpn
 (crontab -l 2>/dev/null; \
  echo "*/5 * * * * /usr/bin/python3 /usr/local/bin/zivpn <<< 4 >/dev/null 2>&1") | crontab -
 
+# -------------------------------
+# FINAL STYLISH BANNER
+# -------------------------------
+clear
+echo -e "\n"
+type_text "✅ Installation Completed Successfully!"
+type_text "🔐 You can now use your IP for ZiVPN"
+type_text "🔑 Permanent password is: zi"
+echo
 echo "======================================="
-echo " INSTALLATION COMPLETED SUCCESSFULLY "
-echo "======================================="
-echo "Dashboard command : zi"
-echo "Permanent password to use: zi"
+echo " Dashboard command : zi"
+echo " TeamSupreme • ZIVPN Private Server "
 echo "======================================="
