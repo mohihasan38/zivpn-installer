@@ -3,7 +3,7 @@ set -e
 
 echo "======================================="
 echo " ZiVPN UDP Server + Dashboard Installer "
-echo " Final – ZiVPN Compatible Version     "
+echo " Stable • Crash-proof • Zi Locked     "
 echo "======================================="
 
 # -------------------------------
@@ -37,11 +37,10 @@ wget -O zi.sh https://raw.githubusercontent.com/zahidbd2/udp-zivpn/main/zi.sh
 chmod +x zi.sh
 
 echo "Auto-confirming ZiVPN password prompt (default: zi)..."
-
 printf "\n" | ./zi.sh
 
 # -------------------------------
-# STEP 4: INSTALL DASHBOARD (SAFE)
+# STEP 4: INSTALL DASHBOARD
 # -------------------------------
 echo "[4/6] Installing ZiVPN dashboard..."
 
@@ -55,6 +54,7 @@ from rich.table import Table
 
 CONFIG = "/etc/zivpn/config.json"
 DB = "/etc/zivpn/pass.db"
+PERMANENT = "zi"   # 🔒 NEVER REMOVED
 
 console = Console()
 os.makedirs("/etc/zivpn", exist_ok=True)
@@ -67,7 +67,7 @@ def load_db():
         for line in f:
             if "|" in line:
                 p, e = line.strip().split("|")
-                if int(e) > now:
+                if int(e) > now and p != PERMANENT:
                     data.append((p, int(e)))
     return data
 
@@ -77,16 +77,15 @@ def save_db(data):
             f.write(f"{p}|{e}\n")
 
 def sync():
-    passwords = [p for p, _ in load_db()]
-    tmp = "/tmp/zivpn.json"
+    passwords = [PERMANENT] + [p for p, _ in load_db()]
 
-    # 🔥 ZiVPN REQUIRES COMPACT JSON (ONE LINE)
+    # 🔐 ZiVPN REQUIRES COMPACT ONE-LINE JSON
+    tmp = "/tmp/zivpn.json"
     subprocess.run(
         ["jq", "-c", f'.auth.config={json.dumps(passwords)}', CONFIG],
         stdout=open(tmp, "w"),
         check=True
     )
-
     os.replace(tmp, CONFIG)
     subprocess.run(["systemctl", "restart", "zivpn"])
 
@@ -103,6 +102,9 @@ while True:
 
     if choice == "1":
         p = input("Password: ").strip()
+        if p == PERMANENT:
+            console.print("[red]'zi' is permanent and already active[/red]")
+            continue
         d = int(input("Valid days: "))
         exp = int(time.time()) + d * 86400
         data = load_db()
@@ -115,6 +117,9 @@ while True:
         data = load_db()
         for i, (p, e) in enumerate(data, 1):
             print(f"{i}) {p} expires {time.strftime('%Y-%m-%d', time.localtime(e))}")
+        if not data:
+            console.print("[yellow]No removable passwords[/yellow]")
+            continue
         n = int(input("Delete number: "))
         if 1 <= n <= len(data):
             data.pop(n - 1)
@@ -127,6 +132,7 @@ while True:
         table.add_column("No")
         table.add_column("Password")
         table.add_column("Expires")
+        table.add_row("-", PERMANENT, "Never")
         for i, (p, e) in enumerate(load_db(), 1):
             table.add_row(str(i), p, time.strftime("%Y-%m-%d", time.localtime(e)))
         console.print(table)
@@ -162,5 +168,6 @@ echo "======================================="
 echo " INSTALLATION COMPLETED SUCCESSFULLY "
 echo "======================================="
 echo "Dashboard command : zivpn"
-echo "Auth source       : auth.config (ONE-LINE JSON)"
+echo "Permanent password: zi (never removed)"
+echo "Config format     : auth.config (one-line)"
 echo "======================================="
