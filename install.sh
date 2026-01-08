@@ -3,7 +3,7 @@ set -e
 
 echo "======================================="
 echo " ZiVPN UDP Server + Dashboard Installer "
-echo " Fully Automatic (Auth.Config FIXED)   "
+echo " Final – ZiVPN Compatible Version     "
 echo "======================================="
 
 # -------------------------------
@@ -38,7 +38,6 @@ chmod +x zi.sh
 
 echo "Auto-confirming ZiVPN password prompt (default: zi)..."
 
-# auto press ENTER
 printf "\n" | ./zi.sh
 
 # -------------------------------
@@ -81,9 +80,9 @@ def sync():
     passwords = [p for p, _ in load_db()]
     tmp = "/tmp/zivpn.json"
 
-    # ✅ CORRECT KEY: auth.config
+    # 🔥 ZiVPN REQUIRES COMPACT JSON (ONE LINE)
     subprocess.run(
-        ["jq", f'.auth.config={json.dumps(passwords)}', CONFIG],
+        ["jq", "-c", f'.auth.config={json.dumps(passwords)}', CONFIG],
         stdout=open(tmp, "w"),
         check=True
     )
@@ -163,5 +162,5 @@ echo "======================================="
 echo " INSTALLATION COMPLETED SUCCESSFULLY "
 echo "======================================="
 echo "Dashboard command : zivpn"
-echo "ZiVPN auth source : auth.config (FIXED)"
+echo "Auth source       : auth.config (ONE-LINE JSON)"
 echo "======================================="
